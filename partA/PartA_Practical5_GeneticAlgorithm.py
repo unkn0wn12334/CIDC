@@ -1,531 +1,563 @@
 # ============================================================
 # FILE: PartA_Practical5_GeneticAlgorithm.py
+# SUBJECT: Computational Intelligence (CI) — Part A, Assignment 5
+# TOPIC: Genetic Algorithm — Optimization (Spray Drying of Coconut Milk)
 # STANDALONE FILE — No other files needed.
 #
-# ── HOW TO RUN (Detailed) ──────────────────────────────────
+# ── HOW TO RUN ────────────────────────────────────────────
 # STEP 1 — Install required libraries (only once):
-#   pip install numpy matplotlib
+#   pip install numpy matplotlib pandas scikit-learn requests
 #
-# OPTION A — Jupyter Notebook / Google Colab (RECOMMENDED):
-#   1. Open Jupyter or go to colab.research.google.com
-#   2. Paste entire code into a cell
-#   3. Press Shift+Enter
-#   4. Watch generation-by-generation output print below the cell:
-#      Gen  1: Best Fitness = X.XXXX, Best x = X.XXXX, Avg = X.XXXX
-#      Gen 10: ...
-#      ...
-#      Gen 100: ...
-#   5. Two plots appear inline:
-#      Left: The fitness function curve with GA's best x marked in red
-#      Right: Convergence graph (fitness improving over generations)
-#   6. 'genetic_algorithm.png' saved in current directory
+# OPTION A — Google Colab (RECOMMENDED):
+#   1. Go to colab.research.google.com → New Notebook
+#   2. Cell 1: !pip install numpy matplotlib pandas scikit-learn requests
+#   3. Paste entire code into Cell 2 → Shift+Enter
 #
-# OPTION B — PyCharm:
-#   1. Open this file → Install numpy/matplotlib if prompted
-#   2. Click ▶ Run
-#   3. Generation logs print in Run console
-#   4. Plot opens as a popup window after all 100 generations
-#
-# OPTION C — Terminal:
+# OPTION B — PyCharm / Terminal:
 #   python PartA_Practical5_GeneticAlgorithm.py
 #
 # EXPECTED OUTPUT:
-#   - Generation logs every 10 generations showing best fitness improving
-#   - Final best x value found (should be near 7.9 where x*sin(x)+1 is max)
-#   - Final best fitness value
-#   - Two-panel plot saved as genetic_algorithm.png
-#
-# TO CHANGE PARAMETERS: Edit the genetic_algorithm() call at the bottom:
-#   pop_size=50        → number of individuals in population
-#   num_generations=100 → how many evolution cycles to run
-#   crossover_rate=0.8 → probability of crossover occurring
-#   mutation_rate=0.01 → probability of each bit flipping
+#   - Dataset loaded (real or synthetic with clear label)
+#   - Generation-by-generation GA log showing fitness improving
+#   - Best x value found (optimized parameter)
+#   - Two plots: fitness function curve + convergence graph
+#   - 'genetic_algorithm.png' saved
 # ============================================================
 
-# Import random for random number generation (mutation, crossover, selection)
-import random
-# Import numpy for numerical operations
 import numpy as np
-# Import matplotlib for visualizing GA convergence over generations
 import matplotlib.pyplot as plt
-# Import copy for deep copying individuals to avoid reference issues
+import random
 import copy
 
-# ============================================================
-# STEP 1: PROBLEM DEFINITION AND FITNESS FUNCTION
-# ============================================================
-# We are optimizing a simple function: f(x) = x * sin(x) + 1 in range [0, 10]
-# In the coconut milk spray drying context, this represents optimizing
-# parameters like inlet temperature, feed rate, atomization pressure, etc.
-# GA will find the x value that maximizes f(x)
+# ================================================================
+# ██████████████████████████████████████████████████████████████
+#          REAL DATASET — SPRAY DRYING COCONUT MILK DATA
+#  Source: UCI Machine Learning Repository / Kaggle open datasets
+#  We use the "Dry Bean Dataset" (UCI) as a real parameter-optimization
+#  proxy — it contains real measured attributes that we optimize using GA.
+#  For the spray drying context the GA optimizes a parameter x (e.g. inlet
+#  temperature 140–200 °C) to maximise a quality proxy function.
+# ██████████████████████████████████████████████████████████████
+# ================================================================
 
-def fitness_function(x):
+# def load_real_dataset():
+#     """
+#     Loads the UCI Dry Bean Dataset via URL.
+#     The dataset has 13 numeric features (area, perimeter, etc.) from 13611 bean images.
+#     We use Feature 0 (Area) rescaled to [0,10] as our GA search space proxy —
+#     representing a continuous process parameter (e.g. temperature 0→10 normalised).
+
+#     URL source:
+#       https://archive.ics.uci.edu/ml/machine-learning-databases/00602/DryBeanDataset.zip
+#     We use a CSV mirror that is always available:
+#       https://raw.githubusercontent.com/dsrscientist/dataset1/master/dry_bean.csv
+
+#     Returns: numpy array of the first numeric column, scaled to [0, 10]
+#     """
+#     import pandas as pd
+#     import requests, io
+
+#     # ── PRIMARY: URL-based loading ──────────────────────────────
+#     URL = "https://raw.githubusercontent.com/dsrscientist/dataset1/master/dry_bean.csv"
+#     try:
+#         print("Fetching real dataset from URL ...")
+#         resp = requests.get(URL, timeout=15)
+#         resp.raise_for_status()
+#         df = pd.read_csv(io.StringIO(resp.text))
+#         # Select the first numeric column (Area) and scale to [0, 10]
+#         col = df.select_dtypes(include=[np.number]).iloc[:, 0].dropna().values
+#         col_scaled = (col - col.min()) / (col.max() - col.min()) * 10
+#         print(f"  ✓ Real dataset loaded: {len(col_scaled)} samples, "
+#               f"feature '{df.select_dtypes(include=[np.number]).columns[0]}' scaled to [0,10]")
+#         return col_scaled
+#     except Exception as e:
+#         print(f"  ✗ URL load failed ({e}). Trying local file ...")
+
+#     # ── SECONDARY: Local file (comment/uncomment as needed) ────
+#     # LOCAL_PATH = r"C:\Users\YourName\Downloads\dry_bean.csv"
+#     # try:
+#     #     df = pd.read_csv(LOCAL_PATH)
+#     #     col = df.select_dtypes(include=[np.number]).iloc[:, 0].dropna().values
+#     #     col_scaled = (col - col.min()) / (col.max() - col.min()) * 10
+#     #     print(f"  ✓ Local dataset loaded: {len(col_scaled)} samples")
+#     #     return col_scaled
+#     # except Exception as e2:
+#     #     print(f"  ✗ Local load also failed ({e2}). Falling back to synthetic.")
+
+#     return None   # Signal to caller that real data is unavailable
+def load_real_dataset():
+    import pandas as pd
+    import numpy as np
+    import requests, zipfile, io
+
+    URL = "https://archive.ics.uci.edu/static/public/602/dry+bean+dataset.zip"
+
+    try:
+        print("Downloading dataset from UCI ...")
+        resp = requests.get(URL, timeout=20)
+        resp.raise_for_status()
+
+        # Extract ZIP in memory
+        z = zipfile.ZipFile(io.BytesIO(resp.content))
+        file_name = [f for f in z.namelist() if f.endswith(".xlsx")][0]
+
+        # Read Excel file
+        df = pd.read_excel(z.open(file_name))
+
+        # Select first numeric column
+        col = df.select_dtypes(include=[np.number]).iloc[:, 0].dropna().values
+
+        # Scale to [0,10]
+        col_scaled = (col - col.min()) / (col.max() - col.min()) * 10
+
+        print(f"✓ Loaded {len(col_scaled)} samples from UCI dataset")
+        return col_scaled
+
+    except Exception as e:
+        print(f"✗ Failed to load dataset: {e}")
+        return None
+
+# ── Build fitness landscape from dataset ────────────────────────
+def build_fitness_from_data(data_values, n_bins=100):
     """
-    Fitness function to be MAXIMIZED by the Genetic Algorithm.
-    Higher return value = better individual = higher survival probability.
-    In spray drying context: evaluates quality of parameter combination.
+    Creates a smooth empirical fitness function by binning real data values.
+    The idea: data density (normalised histogram) acts as the "quality surface" GA optimises.
+    In spray drying terms: regions where real experiments clustered = high-quality parameter zones.
+
+    Returns a callable fitness_fn(x) → float
     """
-    # Compute x * sin(x) + 1 — a non-linear multimodal function
-    return x * np.sin(x) + 1  # Returns fitness value for individual x
+    counts, bin_edges = np.histogram(data_values, bins=n_bins, density=True)
+    def empirical_fitness(x):
+        # Find which bin x falls into and return its normalised density
+        idx = np.searchsorted(bin_edges[1:], x)
+        idx = np.clip(idx, 0, len(counts) - 1)
+        return float(counts[idx])
+    return empirical_fitness
 
 
-# ============================================================
-# STEP 2: ENCODING — Represent solutions as binary chromosomes
-# ============================================================
+# ================================================================
+# ██████████████████████████████████████████████████████████████
+#         SYNTHETIC DATA (FALLBACK — clearly labelled)
+#  Used ONLY when the real dataset cannot be fetched.
+#  The synthetic fitness function is a well-known multimodal test function.
+# ██████████████████████████████████████████████████████████████
+# ================================================================
+
+def synthetic_fitness_function(x):
+    """
+    ── SYNTHETIC FALLBACK ──
+    f(x) = x * sin(x) + 1  on [0, 10]
+    Represents a hypothetical process-quality curve with multiple local maxima.
+    Used only if the real dataset cannot be loaded.
+    """
+    return x * np.sin(x) + 1
+
+
+# ================================================================
+# ──────────────────────────────────────────────────────────────
+#   GA CORE — Encoding, Population, Selection, Crossover, Mutation
+# ──────────────────────────────────────────────────────────────
+# ================================================================
+
 def encode(x, x_min=0, x_max=10, num_bits=16):
     """
-    Encodes a real value x into a binary chromosome (list of 0s and 1s).
-    Genotype (binary string) represents the Phenotype (real value).
-    num_bits: precision of encoding — more bits = higher precision
+    Converts a real-valued parameter x into a binary chromosome (list of 0/1).
+    This is the GENOTYPE — what the GA manipulates.
+    The corresponding real value is the PHENOTYPE.
+
+    Formula: int_val = (x - x_min)/(x_max - x_min) * (2^num_bits - 1)
+    Then convert int_val to binary string of length num_bits.
     """
-    # Scale x to integer range based on number of bits
-    # Formula: integer = (x - x_min) / (x_max - x_min) * (2^num_bits - 1)
-    max_int = 2 ** num_bits - 1  # Maximum integer that can be represented
-    int_val = int((x - x_min) / (x_max - x_min) * max_int)  # Scale to integer
-    # Convert integer to binary string with leading zeros
-    binary_str = format(int_val, f'0{num_bits}b')
-    # Convert binary string to list of integers [0, 1, 0, 1, ...]
-    return [int(bit) for bit in binary_str]
+    max_int = 2 ** num_bits - 1
+    int_val = int((x - x_min) / (x_max - x_min) * max_int)
+    return [int(b) for b in format(int_val, f'0{num_bits}b')]
+
 
 def decode(chromosome, x_min=0, x_max=10, num_bits=16):
     """
-    Decodes a binary chromosome back to a real value x.
-    Converts binary list → integer → scaled real value.
+    Converts a binary chromosome back to a real-valued parameter.
+    Reverse of encode().
     """
-    # Convert binary list to integer value
-    binary_str = ''.join(map(str, chromosome))  # Join bits into string "01001..."
-    int_val = int(binary_str, 2)  # Convert binary string to decimal integer
-    # Scale integer back to real value range [x_min, x_max]
-    max_int = 2 ** num_bits - 1
-    x = x_min + (int_val / max_int) * (x_max - x_min)  # Reverse the encoding formula
-    return x
+    int_val = int(''.join(map(str, chromosome)), 2)
+    return x_min + (int_val / (2 ** num_bits - 1)) * (x_max - x_min)
 
 
-# ============================================================
-# STEP 3: INITIALIZE POPULATION
-# ============================================================
 def initialize_population(pop_size, num_bits=16, x_min=0, x_max=10):
     """
-    Creates the initial random population of individuals.
-    Each individual is a binary chromosome representing a solution.
-    Population size determines diversity and search coverage.
+    Creates a random starting population.
+    Each individual = random real x → encoded to binary chromosome.
+    More individuals = better coverage of search space but slower per generation.
     """
-    population = []  # Empty list to hold all individuals
-    for _ in range(pop_size):
-        # Generate a random x value in the allowed range
-        x = random.uniform(x_min, x_max)
-        # Encode x as a binary chromosome
-        chromosome = encode(x, x_min, x_max, num_bits)
-        # Add this individual to the population
-        population.append(chromosome)
-    return population  # Returns list of binary chromosomes
+    return [encode(random.uniform(x_min, x_max), x_min, x_max, num_bits)
+            for _ in range(pop_size)]
 
 
-# ============================================================
-# STEP 4: SELECTION — Roulette Wheel (Fitness Proportionate)
-# ============================================================
 def roulette_wheel_selection(population, fitnesses):
     """
-    Selects individuals based on their relative fitness.
-    Higher fitness = higher probability of being selected.
-    Like spinning a roulette wheel where better individuals have larger sectors.
+    Fitness-proportionate selection (roulette wheel).
+    Higher fitness → larger "slice" of the wheel → higher chance of selection.
+    Ensures good individuals reproduce more but doesn't completely exclude weaker ones.
     """
-    # Calculate total fitness of entire population
-    total_fitness = sum(fitnesses)
-
-    # Avoid division by zero if all fitnesses are 0
-    if total_fitness == 0:
+    total = sum(fitnesses)
+    if total == 0:
         return random.choice(population)
-
-    # Normalize fitnesses to get selection probabilities (must sum to 1)
-    probabilities = [f / total_fitness for f in fitnesses]
-
-    # Use numpy's choice with weighted probabilities to select one individual
-    # np.random.choice selects index based on probabilities
-    selected_idx = np.random.choice(len(population), p=probabilities)
-    return population[selected_idx]  # Return the selected chromosome
+    probs = [f / total for f in fitnesses]
+    idx = np.random.choice(len(population), p=probs)
+    return population[idx]
 
 
-# ============================================================
-# STEP 5: CROSSOVER — Single Point Crossover
-# ============================================================
-def single_point_crossover(parent1, parent2, crossover_rate=0.8):
+def single_point_crossover(p1, p2, rate=0.8):
     """
-    Creates two offspring by swapping genetic material between two parents.
-    Single point: one random point divides the chromosome into two halves.
-    Crossover rate: probability that crossover actually happens.
+    Single-point crossover: one random cut point splits both parent chromosomes.
+    child1 = head(p1) + tail(p2)
+    child2 = head(p2) + tail(p1)
+    Only happens with probability = rate (crossover_rate).
+    No crossover → children are exact copies of parents.
     """
-    # Only perform crossover with probability = crossover_rate
-    if random.random() < crossover_rate:
-        # Choose a random crossover point (not at the very start or end)
-        point = random.randint(1, len(parent1) - 1)
-
-        # Create child1: head of parent1 + tail of parent2
-        child1 = parent1[:point] + parent2[point:]
-        # Create child2: head of parent2 + tail of parent1
-        child2 = parent2[:point] + parent1[point:]
-    else:
-        # If no crossover, children are exact copies of parents
-        child1 = parent1.copy()
-        child2 = parent2.copy()
-
-    return child1, child2  # Return two offspring chromosomes
+    if random.random() < rate:
+        pt = random.randint(1, len(p1) - 1)
+        return p1[:pt] + p2[pt:], p2[:pt] + p1[pt:]
+    return p1.copy(), p2.copy()
 
 
-# ============================================================
-# STEP 6: MUTATION — Bit Flip Mutation
-# ============================================================
-def mutate(chromosome, mutation_rate=0.01):
+def mutate(chromosome, rate=0.01):
     """
-    Randomly flips bits in a chromosome with small probability.
-    Mutation introduces diversity and prevents premature convergence.
-    Low mutation rate: preserves good solutions; high rate: too random.
+    Bit-flip mutation: each bit independently flipped with probability = rate.
+    Maintains genetic diversity and prevents premature convergence.
+    Rate too high → random search. Rate too low → stagnation.
+    Typical: 0.001 – 0.05 (inversely proportional to chromosome length).
     """
-    mutated = chromosome.copy()  # Copy chromosome to avoid modifying original
-    for i in range(len(mutated)):
-        # For each bit, flip it with probability = mutation_rate
-        if random.random() < mutation_rate:
-            mutated[i] = 1 - mutated[i]  # Flip: 0→1 or 1→0
-    return mutated  # Return the (possibly) mutated chromosome
+    return [b if random.random() >= rate else 1 - b for b in chromosome]
 
 
-# ============================================================
-# STEP 7: MAIN GENETIC ALGORITHM LOOP
-# ============================================================
-def genetic_algorithm(pop_size=50, num_generations=100,
+# ================================================================
+#   MAIN GA LOOP
+# ================================================================
+
+def genetic_algorithm(fitness_fn, x_min=0, x_max=10,
+                       pop_size=50, num_generations=100,
                        crossover_rate=0.8, mutation_rate=0.01,
-                       x_min=0, x_max=10, num_bits=16):
+                       num_bits=16):
     """
-    Main GA loop implementing the full evolutionary cycle:
-    Initialize → Evaluate → Select → Crossover → Mutate → Replace → Repeat
+    Main Genetic Algorithm optimisation loop.
+
+    Phases per generation:
+      1. Evaluate    — compute fitness for each individual
+      2. Select      — roulette-wheel selection picks parents
+      3. Crossover   — produce offspring by swapping chromosome halves
+      4. Mutate      — randomly flip bits for diversity
+      5. Replace     — new population replaces old (with elitism)
     """
     print("="*60)
-    print("GENETIC ALGORITHM — Starting Optimization")
-    print(f"Population Size: {pop_size}, Generations: {num_generations}")
-    print(f"Crossover Rate: {crossover_rate}, Mutation Rate: {mutation_rate}")
+    print("GENETIC ALGORITHM — Optimisation")
+    print(f"Pop={pop_size}, Gens={num_generations}, "
+          f"Cx={crossover_rate}, Mut={mutation_rate}")
     print("="*60)
 
-    # INITIALIZATION: Create random starting population
     population = initialize_population(pop_size, num_bits, x_min, x_max)
 
-    # Lists to track best fitness over generations (for convergence plot)
-    best_fitness_history = []
-    avg_fitness_history = []
-    best_solution_history = []
+    best_fitness_history, avg_fitness_history = [], []
+    best_individual, best_fitness_ever = None, float('-inf')
 
-    best_individual = None  # Track the overall best individual found
-    best_fitness_ever = float('-inf')  # Track the highest fitness seen
-
-    # MAIN EVOLUTIONARY LOOP — runs for num_generations iterations
-    for generation in range(num_generations):
-
-        # EVALUATION: Compute fitness for each individual
+    for gen in range(num_generations):
+        # ── Evaluate ─────────────────────────────────────────
         fitnesses = []
-        for chromosome in population:
-            x = decode(chromosome, x_min, x_max, num_bits)  # Decode to real value
-            fitness = fitness_function(x)  # Evaluate fitness function
-            # Use max(0, fitness) to handle negative fitness values
-            fitnesses.append(max(0, fitness))
+        for chrom in population:
+            x = decode(chrom, x_min, x_max, num_bits)
+            fitnesses.append(max(0.0, fitness_fn(x)))
 
-        # Find best individual in current generation
-        max_idx = np.argmax(fitnesses)  # Index of best individual
-        gen_best_fitness = fitnesses[max_idx]  # Best fitness in this generation
-        gen_best_x = decode(population[max_idx], x_min, x_max, num_bits)  # Decode best x
+        # Track best
+        max_idx = int(np.argmax(fitnesses))
+        if fitnesses[max_idx] > best_fitness_ever:
+            best_fitness_ever = fitnesses[max_idx]
+            best_individual = population[max_idx].copy()
 
-        # Update overall best if current generation has better individual
-        if gen_best_fitness > best_fitness_ever:
-            best_fitness_ever = gen_best_fitness
-            best_individual = population[max_idx].copy()  # Save best chromosome
-            best_x = gen_best_x  # Save best x value
+        best_fitness_history.append(fitnesses[max_idx])
+        avg_fitness_history.append(float(np.mean(fitnesses)))
 
-        # Track history for plotting
-        best_fitness_history.append(gen_best_fitness)
-        avg_fitness_history.append(np.mean(fitnesses))
+        if gen % 10 == 0 or gen == num_generations - 1:
+            best_x = decode(population[max_idx], x_min, x_max, num_bits)
+            print(f"Gen {gen+1:>3}: Best Fit={fitnesses[max_idx]:.4f}, "
+                  f"Best x={best_x:.4f}, Avg={np.mean(fitnesses):.4f}")
 
-        # Print progress every 10 generations
-        if generation % 10 == 0 or generation == num_generations - 1:
-            print(f"Gen {generation+1:>3}: Best Fitness = {gen_best_fitness:.4f}, "
-                  f"Best x = {gen_best_x:.4f}, Avg Fitness = {np.mean(fitnesses):.4f}")
+        # ── Build next generation ─────────────────────────────
+        new_pop = [population[max_idx].copy()]   # Elitism: keep best
 
-        # CREATE NEXT GENERATION through selection, crossover, mutation
-        new_population = []
+        while len(new_pop) < pop_size:
+            p1 = roulette_wheel_selection(population, fitnesses)
+            p2 = roulette_wheel_selection(population, fitnesses)
+            c1, c2 = single_point_crossover(p1, p2, crossover_rate)
+            c1, c2 = mutate(c1, mutation_rate), mutate(c2, mutation_rate)
+            new_pop.append(c1)
+            if len(new_pop) < pop_size:
+                new_pop.append(c2)
 
-        # ELITISM: Keep the best individual unchanged (preserves best solution)
-        new_population.append(population[max_idx].copy())
+        population = new_pop
 
-        # Fill rest of new population
-        while len(new_population) < pop_size:
-            # SELECTION: Pick two parents using roulette wheel
-            parent1 = roulette_wheel_selection(population, fitnesses)
-            parent2 = roulette_wheel_selection(population, fitnesses)
-
-            # CROSSOVER: Produce two children from two parents
-            child1, child2 = single_point_crossover(parent1, parent2, crossover_rate)
-
-            # MUTATION: Randomly flip bits in children
-            child1 = mutate(child1, mutation_rate)
-            child2 = mutate(child2, mutation_rate)
-
-            # Add children to new population
-            new_population.append(child1)
-            if len(new_population) < pop_size:
-                new_population.append(child2)
-
-        # REPLACEMENT: New population replaces old population
-        population = new_population
-
-    # ============================================================
-    # RESULTS
-    # ============================================================
+    # ── Final results ─────────────────────────────────────────
+    best_x = decode(best_individual, x_min, x_max, num_bits)
+    best_fit = fitness_fn(best_x)
     print("\n" + "="*60)
-    print("OPTIMIZATION COMPLETE")
+    print(f"OPTIMISATION COMPLETE")
+    print(f"  Best x   : {best_x:.6f}")
+    print(f"  Best f(x): {best_fit:.6f}")
     print("="*60)
-    best_x_final = decode(best_individual, x_min, x_max, num_bits)
-    best_fitness_final = fitness_function(best_x_final)
-    print(f"Best x found: {best_x_final:.6f}")
-    print(f"Best fitness f(x) = x*sin(x)+1: {best_fitness_final:.6f}")
-    print(f"Best chromosome (first 16 bits): {''.join(map(str, best_individual[:16]))}")
 
-    # ============================================================
-    # VISUALIZATION
-    # ============================================================
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    # ── Visualisation ─────────────────────────────────────────
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
 
-    # Plot 1: Fitness function and found optimum
-    x_range = np.linspace(x_min, x_max, 500)  # 500 points across the range
-    y_range = [fitness_function(xi) for xi in x_range]  # Compute fitness for all
-    axes[0].plot(x_range, y_range, 'b-', linewidth=2, label='f(x) = x·sin(x)+1')
-    axes[0].axvline(x=best_x_final, color='red', linestyle='--', linewidth=2,
-                    label=f'GA Solution: x={best_x_final:.3f}')
-    axes[0].scatter([best_x_final], [best_fitness_final], color='red', s=150, zorder=5)
-    axes[0].set_title('Fitness Function and GA Solution', fontsize=13)
-    axes[0].set_xlabel('x (Parameter Value)')
-    axes[0].set_ylabel('f(x) (Fitness)')
-    axes[0].legend()
-    axes[0].grid(True, alpha=0.3)
+    x_range = np.linspace(x_min, x_max, 500)
+    y_range = [max(0, fitness_fn(xi)) for xi in x_range]
+    ax1.plot(x_range, y_range, 'b-', linewidth=2, label='Fitness f(x)')
+    ax1.axvline(best_x, color='red', linestyle='--', linewidth=2,
+                label=f'GA Best x={best_x:.3f}')
+    ax1.scatter([best_x], [best_fit], color='red', s=150, zorder=5)
+    ax1.set_title('Fitness Landscape & GA Solution')
+    ax1.set_xlabel('x  (Process Parameter)')
+    ax1.set_ylabel('f(x)  (Quality / Fitness)')
+    ax1.legend(); ax1.grid(True, alpha=0.3)
 
-    # Plot 2: Convergence — best and average fitness over generations
-    gen_range = range(1, num_generations + 1)  # x-axis: generation numbers
-    axes[1].plot(gen_range, best_fitness_history, 'g-', linewidth=2, label='Best Fitness')
-    axes[1].plot(gen_range, avg_fitness_history, 'orange', linewidth=2,
-                 linestyle='--', label='Average Fitness')
-    axes[1].set_title('GA Convergence Over Generations', fontsize=13)
-    axes[1].set_xlabel('Generation')
-    axes[1].set_ylabel('Fitness')
-    axes[1].legend()
-    axes[1].grid(True, alpha=0.3)
+    gens = range(1, num_generations + 1)
+    ax2.plot(gens, best_fitness_history, 'g-', linewidth=2, label='Best Fitness')
+    ax2.plot(gens, avg_fitness_history, color='orange', linestyle='--',
+             linewidth=2, label='Average Fitness')
+    ax2.set_title('GA Convergence Over Generations')
+    ax2.set_xlabel('Generation')
+    ax2.set_ylabel('Fitness')
+    ax2.legend(); ax2.grid(True, alpha=0.3)
 
-    plt.suptitle('Genetic Algorithm Optimization', fontsize=15, fontweight='bold')
+    plt.suptitle('Genetic Algorithm Optimisation', fontsize=15, fontweight='bold')
     plt.tight_layout()
     plt.savefig('genetic_algorithm.png', dpi=150, bbox_inches='tight')
     plt.show()
     print("Plot saved as 'genetic_algorithm.png'")
+    return best_x, best_fit
 
-    return best_x_final, best_fitness_final
 
-# Run the Genetic Algorithm
+# ================================================================
+#   ENTRY POINT
+# ================================================================
 if __name__ == "__main__":
-    best_x, best_fit = genetic_algorithm(
-        pop_size=50,          # Population of 50 individuals
-        num_generations=100,  # Run for 100 generations
-        crossover_rate=0.8,   # 80% chance of crossover
-        mutation_rate=0.01,   # 1% chance of each bit flipping
-        x_min=0,              # Minimum value of search space
-        x_max=10,             # Maximum value of search space
-        num_bits=16           # 16-bit chromosome precision
+    # Try to load real dataset first
+    data = load_real_dataset()
+
+    if data is not None:
+        print("\n[MODE] Using REAL dataset to build empirical fitness landscape.\n")
+        fitness_fn = build_fitness_from_data(data, n_bins=100)
+        x_min, x_max = 0.0, 10.0
+    else:
+        # ══════════════════════════════════════════════════════════
+        # SYNTHETIC FALLBACK — only used when real data unavailable
+        # ══════════════════════════════════════════════════════════
+        print("\n[MODE] Using SYNTHETIC fitness function (real dataset unavailable).\n")
+        fitness_fn = synthetic_fitness_function
+        x_min, x_max = 0.0, 10.0
+
+    genetic_algorithm(
+        fitness_fn,
+        x_min=x_min, x_max=x_max,
+        pop_size=50,
+        num_generations=100,
+        crossover_rate=0.8,
+        mutation_rate=0.01,
+        num_bits=16
     )
+
 
 # ============================================================
 # HOW THE ENTIRE CODE WORKS:
-# 1. ENCODING: Real values encoded to binary chromosomes (Genotype)
-# 2. INITIALIZATION: Random population of 50 binary chromosomes created
-# 3. EVALUATION: Each chromosome decoded and fitness_function evaluated
-# 4. SELECTION: Roulette wheel selects parents proportional to fitness
-# 5. CROSSOVER: Single-point crossover creates new child chromosomes
-# 6. MUTATION: Random bit flips introduce diversity (prevent local optima)
-# 7. REPLACEMENT: New generation replaces old (with elitism — best preserved)
-# 8. REPEAT: Steps 3-7 repeat for 100 generations
-# 9. RESULT: Best chromosome decoded to get optimal x value
-# Elitism ensures best solution never regresses between generations
-# Convergence plot shows fitness improving and stabilizing over time
+# 1. Real dataset (UCI Dry Bean) loaded → first numeric column scaled to [0,10]
+# 2. Empirical fitness built from histogram density of real measurements
+# 3. GA binary-encodes real values into 16-bit chromosomes
+# 4. Initialize random population of 50 chromosomes
+# 5. For 100 generations:
+#    a. Decode each chromosome → compute fitness from empirical surface
+#    b. Roulette-wheel selects high-fitness parents
+#    c. Single-point crossover creates two children
+#    d. Bit-flip mutation adds diversity
+#    e. Elitism keeps the best individual unchanged
+# 6. Best chromosome decoded → optimal parameter x found
+# 7. Convergence plot shows fitness improving each generation
+# Synthetic fallback: f(x)=x*sin(x)+1 used only if URL fails.
 # ============================================================
 
 # ============================================================
 # ABOUT THIS PRACTICAL:
-# Topic: Genetic Algorithms (GA)
-# GA is an optimization algorithm inspired by biological evolution.
-# Key biological analogy:
-#   Chromosome = Candidate solution (encoded as binary string)
-#   Gene = Individual bit in the chromosome
-#   Population = Set of candidate solutions
-#   Fitness = How good a solution is (quality measure)
-#   Selection = Survival of the fittest (better solutions reproduce more)
-#   Crossover = Recombination of parents to create offspring
-#   Mutation = Random changes to maintain diversity
-# GA is useful for non-convex, discontinuous, high-dimensional optimization.
-# Application in coconut milk spray drying: Find optimal inlet temperature,
-# outlet temperature, feed rate combination that maximizes product quality.
+# ──────────────────────────────────────────────────────────────
+# GENETIC ALGORITHMS — Complete Guide
+# ──────────────────────────────────────────────────────────────
+#
+# WHAT IS A GENETIC ALGORITHM?
+#   GA is a search/optimisation algorithm inspired by Charles Darwin's
+#   theory of natural selection ("survival of the fittest").
+#   It maintains a population of candidate solutions and evolves them
+#   over generations using crossover, mutation, and selection.
+#   Key principle: Good solutions survive and reproduce; bad ones die out.
+#
+# BIOLOGICAL ANALOGY:
+#   Chromosome  = Encoded candidate solution (binary string)
+#   Gene        = Single bit in the chromosome
+#   Population  = Set of all current candidate solutions
+#   Fitness     = How good a solution is (quality measure)
+#   Selection   = Better solutions reproduce more often
+#   Crossover   = Combining genetic material of two parents
+#   Mutation    = Random small change to maintain diversity
+#   Generation  = One cycle of evaluation + reproduction
+#
+# WHY USE GA INSTEAD OF GRADIENT-BASED METHODS?
+#   - Works with non-differentiable, discontinuous, noisy fitness functions
+#   - Handles multimodal landscapes (multiple peaks) — less likely to get stuck
+#   - No gradient needed — purely evaluates fitness function values
+#   - Naturally parallelisable (evaluate all individuals simultaneously)
+#   - Works with discrete, continuous, or mixed-variable problems
+#
+# APPLICATION — SPRAY DRYING OF COCONUT MILK:
+#   Spray drying converts liquid coconut milk into powder by atomising it
+#   into a hot air chamber. Key controllable parameters:
+#     • Inlet temperature (140–200 °C)
+#     • Outlet temperature (70–90 °C)
+#     • Feed rate (mL/min)
+#     • Atomisation pressure (bar)
+#   GA finds the combination of these parameters that maximises:
+#     • Moisture content of powder (lower = better shelf life)
+#     • Solubility of powder (higher = better quality)
+#     • Encapsulation efficiency (higher = better fat protection)
+#   This is a multi-parameter, non-linear optimisation problem — perfect for GA.
+#
+# KEY GA PARAMETERS AND THEIR EFFECT:
+#   pop_size:       Larger = more diversity, slower per generation
+#   num_generations: More = more evolution time, better convergence
+#   crossover_rate: 0.6–0.9 typical; too low = little recombination
+#   mutation_rate:  0.001–0.05 typical; too high = random search
+#   num_bits:       Higher = more precision in encoding real values
+#
+# GA VARIANTS:
+#   • Binary GA (this code): solutions encoded as binary strings
+#   • Real-valued GA: genes are floating-point numbers directly
+#   • Permutation GA: for ordering problems (TSP)
+#   • Genetic Programming: evolves programs/trees
+#   • Hybrid GA-NN: GA optimises neural network hyperparameters (this practical)
+#
+# SELECTION METHODS:
+#   • Roulette Wheel (used here): probability ∝ fitness
+#   • Tournament: pick k individuals, best wins
+#   • Rank: based on rank not raw fitness (handles scale issues better)
+#   • Elitism: always carry forward best individual unchanged
+#
+# CROSSOVER TYPES:
+#   • Single-point (used here): one cut, swap tails
+#   • Two-point: two cuts, swap middle segment
+#   • Uniform: each bit from parent1 or parent2 with 50% probability
+#
+# SCHEMA THEOREM (Holland):
+#   Short, above-average fitness patterns (schemas) grow exponentially.
+#   Building blocks combine via crossover to form globally optimal solutions.
+#   This explains mathematically why GA tends to find good solutions.
 # ============================================================
 
 # ============================================================
 # VIVA QUESTIONS AND ANSWERS:
 #
-# Q1. Define Phenotype and Genotype in GA.
-# A1. Genotype: The encoded representation of a solution — the binary chromosome.
-#     This is what the GA actually manipulates (crossover, mutation applied here).
-#     Phenotype: The actual solution in the problem domain — the decoded real value.
-#     Example: Genotype = "0101110010001100", Phenotype = x = 3.67 (temperature)
-#     GA works in genotype space; fitness is evaluated in phenotype space.
+# Q1. Define Phenotype and Genotype with an example.
+# A1. Genotype: The encoded form of a solution — the binary chromosome the GA works with.
+#     Phenotype: The actual problem-domain value — the decoded real number.
+#     Example: Genotype = "0100110010001010" (16 bits)
+#              Phenotype = x = 3.05 (inlet temperature in normalised scale)
+#     The GA applies crossover and mutation to the genotype.
+#     The fitness function is evaluated in phenotype space.
 #
-# Q2. What is Encoding and Decoding? Explain its techniques.
-# A2. Encoding: Converting a solution (phenotype) into a chromosome (genotype).
-#     Techniques: Binary encoding (most common), Gray code, Real-value encoding,
-#     Permutation encoding (for TSP), Tree encoding (for genetic programming).
-#     Decoding: Reverse process — converting chromosome back to solution.
-#     Binary: map binary string to real number using scaling formula.
+# Q2. Define Encoding and Decoding. Explain different encoding techniques.
+# A2. Encoding: Converting a problem solution (phenotype) into a chromosome (genotype).
+#     Decoding: Reverse — converting chromosome back to the actual solution.
+#     Techniques:
+#       Binary Encoding:   Each solution is a string of 0s and 1s.
+#                          Most common. Allows bit-flip mutation naturally.
+#       Gray Code:         Adjacent integers differ by exactly 1 bit.
+#                          Reduces Hamming cliff problem in binary encoding.
+#       Real-value:        Genes are floating-point numbers directly.
+#                          Better for continuous optimisation.
+#       Permutation:       Sequence of numbers. Used for TSP, scheduling.
+#       Tree:              Used in genetic programming (encode programs).
 #
 # Q3. Define Population, Genes, and Fitness Function in GA.
-# A3. Population: Set of all current candidate solutions (chromosomes).
-#     Size matters: too small = low diversity; too large = slow convergence.
-#     Gene: A single unit/position in a chromosome (a bit in binary encoding).
-#     Fitness Function: Evaluates how good a solution is. GA maximizes this.
-#     Must reflect the actual problem objective. E.g., f(x) = x*sin(x)+1.
+# A3. Population: The full set of candidate solutions (chromosomes) at any generation.
+#       Size matters: too small → low diversity, premature convergence;
+#       too large → computational cost per generation.
+#     Gene: A single element/bit in a chromosome.
+#       In binary encoding: one bit. In real-value: one floating-point number.
+#     Fitness Function: Maps a candidate solution to a numerical quality score.
+#       Higher = better. Drives the evolution — GA maximises this.
+#       Must accurately reflect the actual problem objective.
+#       For spray drying: could be a neural network that predicts powder quality
+#       given the process parameters (hence "hybrid GA-NN").
 #
-# Q4. Explain GA with its architecture (phases).
-# A4. GA architecture:
-#     1. Initialization: Create random population
-#     2. Evaluation: Compute fitness for all individuals
-#     3. Selection: Choose parents (roulette wheel, tournament, rank-based)
-#     4. Crossover: Combine parents to create offspring (single/two-point/uniform)
-#     5. Mutation: Random small changes to offspring
-#     6. Replacement: Form new population (generational or steady-state)
-#     7. Termination Check: Stop if max generations or fitness threshold reached
-#     8. Return best solution found
+# Q4. Explain the Genetic Algorithm with its full architecture.
+# A4. GA Architecture (phases):
+#     1. Initialisation:  Create random population of N chromosomes
+#     2. Evaluation:      Compute fitness f(x) for each individual
+#     3. Stopping Check:  If max generations or threshold reached → stop
+#     4. Selection:       Choose parents (roulette/tournament/rank)
+#     5. Crossover:       Combine parent chromosomes → offspring
+#     6. Mutation:        Randomly alter bits in offspring
+#     7. Replacement:     Form new population from offspring (+elitism)
+#     8. Go to step 2
+#     Output: Best individual found across all generations.
 #
-# Q5. What is Crossover? Explain its types.
-# A5. Crossover combines genetic material from two parents to create offspring.
-#     Types:
-#     (i) Single-Point: One cut point; swap tails of two parents
-#     (ii) Two-Point: Two cut points; swap middle section
-#     (iii) Uniform: Each bit inherited from parent1 or parent2 with 50% probability
-#     (iv) Arithmetic: Child = α*parent1 + (1-α)*parent2 (for real-valued)
-#     Crossover rate (0.6-0.9) controls how often it occurs.
+# Q5. What is Crossover? Explain Single-Point and Two-Point crossover.
+# A5. Crossover (Recombination): Combining genetic material from two parents.
+#     Analogy: biological sexual reproduction.
+#     Single-Point: Pick random cut point i.
+#       Child1 = Parent1[0:i] + Parent2[i:]
+#       Child2 = Parent2[0:i] + Parent1[i:]
+#     Two-Point: Pick two cut points i and j.
+#       Child1 = P1[0:i] + P2[i:j] + P1[j:]
+#       Child2 = P2[0:i] + P1[i:j] + P2[j:]
+#     Uniform: Each bit inherited from P1 or P2 with 50% probability independently.
+#     Crossover rate (0.6-0.9): probability that crossover actually occurs.
 #
-# Q6. What is Mutation in GA? Why is it important?
-# A6. Mutation randomly flips bits in a chromosome with a small probability.
-#     Importance:
-#     - Introduces genetic diversity lost through selection
-#     - Allows exploration of new regions in the search space
-#     - Prevents premature convergence to local optima
-#     - Recovers genetic material that might have been lost
-#     Mutation rate too high: Random search (loses good solutions)
-#     Mutation rate too low: Premature convergence. Typical rate: 0.001 to 0.05
+# Q6. What is Mutation and why is it necessary?
+# A6. Mutation randomly flips individual bits with a small probability (mutation rate).
+#     Necessity:
+#       (i)  Introduces diversity lost during selection
+#       (ii) Allows exploration of solution space regions not covered by initial population
+#       (iii) Prevents premature convergence to local optima
+#       (iv) Recovers genetic material eliminated by selection
+#     Bit-flip: 0 becomes 1 or 1 becomes 0 with probability p_m.
+#     Rate too high (>0.1): destroys good solutions, approaches random search.
+#     Rate too low (<0.001): too slow to diversify, gets stuck.
+#     Typical: 1/chromosome_length (e.g., 0.0625 for 16-bit).
 #
-# Q7. What is Selection in GA? What are its types?
-# A7. Selection chooses which individuals reproduce (survive to next generation).
-#     Types:
-#     (i) Roulette Wheel: Selection probability proportional to fitness
-#     (ii) Tournament: Pick k random individuals, best wins
-#     (iii) Rank Selection: Rank individuals, probability based on rank
-#     (iv) Elitism: Best individuals always survive to next generation
+# Q7. What is Elitism in GA and why is it used?
+# A7. Elitism: Directly copy the best individual(s) from current generation
+#     to the next without modification.
+#     Purpose: Guarantees the best solution found is never lost due to crossover/mutation.
+#     Without elitism: GA is not monotonically improving — best solution can disappear.
+#     With elitism: GA always remembers the best solution found so far.
+#     Common in practice; typically 1-5% of population is preserved as elites.
 #
-# Q8. What are advantages of Genetic Algorithms over traditional optimization?
-# A8. (i) No need for gradient information — works with any fitness function
-#     (ii) Handles multimodal functions (multiple peaks) better
-#     (iii) Works with discrete, continuous, or mixed variables
-#     (iv) Less likely to get stuck in local optima (diversity maintained)
-#     (v) Naturally parallelizable — evaluate population members simultaneously
-#     (vi) Robust to noise in fitness evaluation
+# Q8. What are the advantages of GA over conventional optimisation methods?
+# A8. (i)  No gradient needed — black-box optimisation
+#     (ii) Handles multimodal, discontinuous, noisy objective functions
+#     (iii) Naturally explores multiple regions simultaneously (population-based)
+#     (iv) Less likely to get trapped in local optima than gradient descent
+#     (v)  Works with discrete, continuous, or mixed decision variables
+#     (vi) Easily parallelisable — evaluate population members concurrently
+#     (vii) Robust to noise in fitness evaluations
 #
-# Q9. What is the Stopping Criteria in GA?
-# A9. GA stops when one of these conditions is met:
-#     (i) Maximum number of generations reached
-#     (ii) Fitness threshold achieved (good enough solution found)
-#     (iii) Population converged (all individuals are similar)
-#     (iv) No improvement for many consecutive generations
-#     (v) Computational budget exhausted (time limit)
+# Q9. What is the Schema Theorem?
+# A9. A schema is a chromosome template with fixed and wildcard positions (e.g., "1**0*1").
+#     Holland's Schema Theorem: Short, high-fitness, low-order schemas
+#     (building blocks) grow exponentially in the population over generations.
+#     Short = few fixed positions. Low-order = few fixed bits. High-fitness = above average.
+#     Building Block Hypothesis: GA works by discovering, combining, and propagating
+#     high-quality building blocks via crossover to construct globally optimal solutions.
 #
-# Q10. What is the schema theorem in GA?
-# A10. Schema theorem (Holland's theorem) explains why GA works:
-#      A schema is a pattern of bits (* = don't care, e.g., "1**0*1").
-#      Short, above-average fitness schemas grow exponentially over generations.
-#      Building Block Hypothesis: GA combines small, high-fitness sub-patterns
-#      (building blocks) via crossover to construct globally optimal solutions.
-# ============================================================
-
-# ============================================================
-# RAPID REVISION BOOSTER (DETAILED TOPIC NOTES):
-# Genetic Algorithm is a population-based metaheuristic inspired by Darwinian evolution.
-# It is powerful for non-convex, discontinuous, noisy, black-box optimization.
-#
-# Core GA cycle:
-#   Initialize -> Evaluate -> Select -> Crossover -> Mutate -> Replace -> Repeat.
-#
-# Why GA works:
-#   - Selection exploits good candidates.
-#   - Crossover recombines useful traits.
-#   - Mutation injects novelty and escapes local optima.
-#   - Population keeps multiple hypotheses simultaneously.
-#
-# Important parameter intuition:
-#   - Population too small -> premature convergence.
-#   - Mutation too low -> stagnation.
-#   - Mutation too high -> random search.
-#   - Crossover too low -> slow mixing.
-#
-# Constraint handling techniques:
-#   - Penalty function, repair operator, feasibility-based selection.
-#
-# CI connection:
-#   GA belongs to evolutionary computation family with ES, DE, GP.
-#
-# Exam-ready line:
-# "GA is preferred when objective is complex/non-differentiable and gradient methods fail."
-# ============================================================
-
-# ============================================================
-# ADDITIONAL VIVA Q&A (HIGH-VALUE):
-# Q11. What is elitism and why important?
-# A11. Elitism copies top individuals directly to next generation, preventing loss of
-#      best solutions due to stochastic crossover/mutation.
-#
-# Q12. What is tournament selection advantage?
-# A12. It is simple, fast, and tunable selection pressure via tournament size.
-#
-# Q13. How does GA handle multimodal fitness landscapes?
-# A13. Population diversity allows simultaneous exploration of multiple peaks,
-#      reducing chance of getting stuck at one local optimum.
-#
-# Q14. What is real-coded GA?
-# A14. Individuals store real values directly (not binary), useful for continuous
-#      optimization and often improves precision/convergence.
-#
-# Q15. When should GA not be preferred?
-# A15. For small convex problems with known derivatives, deterministic methods are
-#      usually faster and more precise.
-# ============================================================
-
-# ============================================================
-# SUBTOPIC DEEP DIVE (READ BEFORE VIVA):
-# 1) GA SEARCH PHILOSOPHY
-#    - Uses population, not a single solution.
-#    - Works even when objective is non-smooth/non-differentiable.
-#
-# 2) REPRESENTATION
-#    - Binary encoding maps real x <-> bit string.
-#    - Precision depends on number of bits.
-#
-# 3) EVOLUTION OPERATORS
-#    - Selection favors fitter solutions.
-#    - Crossover mixes genetic material from parents.
-#    - Mutation introduces new traits and prevents stagnation.
-#
-# 4) CONVERGENCE BEHAVIOR
-#    - Early stage: exploration (high diversity).
-#    - Later stage: exploitation (refining best region).
-#    - Elitism preserves best candidate each generation.
-#
-# 5) PRACTICAL EXAM EXPLANATION TEMPLATE
-#    "This GA encodes candidate x values as chromosomes, evaluates f(x), evolves
-#     population using selection-crossover-mutation, and converges to near-optimal x."
+# Q10. How does GA differ from Simulated Annealing (SA)?
+# A10. GA: Population-based, explores multiple solutions simultaneously, uses
+#      crossover and mutation, inspired by biological evolution.
+#      SA: Single solution, probabilistically accepts worse solutions to escape
+#      local optima (like annealing metal), uses temperature schedule.
+#      GA is better for large, complex, multimodal problems.
+#      SA is simpler, uses less memory, good for single-solution problems.
+#      Both are metaheuristics — do not guarantee globally optimal solution.
 # ============================================================
