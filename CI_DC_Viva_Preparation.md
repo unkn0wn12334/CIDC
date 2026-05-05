@@ -1,0 +1,1183 @@
+# 🎓 CI & DC — Complete Viva Preparation Guide
+### All Topics, All Practicals | Simple Language + Analogies
+
+> **How to use this:** Skim the topic headings, then read any Q&A that could randomly land on you. Each answer is written for someone who needs to understand it in 10 seconds — not memorise paragraphs.
+
+---
+
+# 📋 QUICK TOPIC INDEX
+| # | Topic | Key Concept |
+|---|-------|-------------|
+| 1 | RPC | Call a function on another machine |
+| 2 | RMI | Call a method on a remote Java object |
+| 3 | Fuzzy Sets | Partial membership (0 to 1, not just 0 or 1) |
+| 4 | Load Balancing | Distribute work across servers |
+| 5 | Genetic Algorithm | Evolution to find best solution |
+| 6 | Clonal Selection (CLONALG) | Immune system learns best antibodies |
+| 7 | AIS / AIPR | Immune system for pattern recognition |
+| 8 | ACO / TSP | Ants find shortest path |
+| 9 | DEAP | Python library for evolutionary algorithms |
+| 10 | MapReduce | Parallel data processing on clusters |
+| 11 | Neural Style Transfer | AI painting using deep learning |
+| 12 | Evolutionary Computation (Big Picture) | GA, GP, ES, swarm intelligence overview |
+
+---
+
+---
+
+# 🔌 PART A — PRACTICAL 1: RPC (Remote Procedure Call)
+
+## What is it in one line?
+**"Call a function on another machine as if it were on your own machine."**
+
+Think of it like calling a friend to do your homework — you give them the problem, they solve it, send back the answer. You don't care how they solved it.
+
+---
+
+### Q1. What is RPC?
+**A:** RPC (Remote Procedure Call) is a protocol where a client program calls a function that actually runs on a **remote server**. The network communication is hidden — to the programmer it looks like a normal local function call.
+
+**Analogy:** Like calling a restaurant to order food. You say "bring me pizza" (call the function), they cook it (execute on server), deliver it (return result). You didn't cook anything yourself.
+
+---
+
+### Q2. What is Marshalling and Unmarshalling?
+**A:**
+- **Marshalling** = Packing the function arguments into a format (XML/JSON/bytes) to send over the network. Like putting your homework in an envelope.
+- **Unmarshalling** = Unpacking the received data back into usable values. Like opening the envelope.
+
+In Java: `DataOutputStream.writeInt(n)` = marshalling. `DataInputStream.readLong()` = unmarshalling.
+
+---
+
+### Q3. What is a Client Stub?
+**A:** A stub is a **fake local version** of the remote function. The client thinks it's calling a local function, but the stub secretly packs the data and sends it over the network. It's the middleman.
+
+**Analogy:** A travel agent books flights for you. You just say "I want to go to Mumbai" — they do all the complex booking work behind the scenes.
+
+---
+
+### Q4. What is a Server Stub (Skeleton)?
+**A:** The server-side handler that receives the network request, unpacks the data, calls the actual function, packs the result, and sends it back.
+
+---
+
+### Q5. What are the key issues in RPC?
+**A:**
+- **Binding:** How does client find the server? (Static = hardcoded IP, Dynamic = uses a name server)
+- **Security:** Is the data encrypted? Is the client authenticated?
+- **Fault Tolerance:** What if server crashes or network fails?
+- **Performance:** Marshalling + network adds latency
+- **Idempotency:** If request is retried, does it run twice? (Problem for non-safe operations)
+
+---
+
+### Q6. RPC vs Local Call — what's the difference?
+**A:**
+| Local Call | RPC |
+|---|---|
+| Same machine, same memory | Different machines, over network |
+| Very fast (nanoseconds) | Slower (milliseconds) |
+| Never fails due to network | Can fail due to network |
+| No marshalling needed | Marshalling required |
+
+---
+
+### Q7. What is XML-RPC?
+**A:** XML-RPC is an RPC protocol that uses **XML** to encode the function call and **HTTP** to transport it. Python's built-in `xmlrpc.server` and `xmlrpc.client` implement this.
+
+---
+
+### Q8. What are At-most-once vs At-least-once semantics?
+**A:**
+- **At-most-once:** Request may not execute (if failure), but never executes twice.
+- **At-least-once:** Request will eventually execute, but might run multiple times if retried.
+- **Exactly-once:** Hardest to guarantee — execute exactly one time. Nearly impossible in distributed systems.
+
+---
+
+### Q9. What is Dynamic Binding?
+**A:** Client finds the server's address at **runtime** by contacting a Name Server (directory service), instead of hardcoding the address. More flexible — server can move to a new IP without breaking clients.
+
+---
+
+### Q10. What is idempotency? Why does it matter in RPC?
+**A:** An operation is **idempotent** if running it multiple times gives the same result. Example: `getFactorial(5)` — always returns 120, no matter how many times called.  
+Non-idempotent: `transferMoney(100)` — calling it twice transfers money twice!  
+Idempotent operations are safe to retry; non-idempotent need exactly-once semantics.
+
+---
+
+---
+
+# ☕ PART A — PRACTICAL 2: RMI (Remote Method Invocation)
+
+## What is it in one line?
+**"Like RPC but object-oriented — call a method on a Java object living in another JVM."**
+
+---
+
+### Q1. What is RMI?
+**A:** RMI is Java's mechanism for invoking methods on an object that exists in a **different JVM** (possibly on a different machine). The call looks exactly like a local method call but executes remotely.
+
+**Analogy:** You call your friend who has a calculator. You say "add 5 and 3" — they do it and tell you the answer. You didn't need a calculator yourself.
+
+---
+
+### Q2. What is a Stub in RMI?
+**A:** A **stub** is the client-side proxy that looks like the remote object. When you call a method on the stub, it:
+1. Connects to the remote JVM
+2. Marshals (serializes) the method arguments
+3. Sends them over the network
+4. Waits for the result
+5. Unmarshals the response and returns it to you
+
+---
+
+### Q3. What is a Skeleton in RMI?
+**A:** The **skeleton** sits on the server side. It receives the incoming call, deserializes the arguments, calls the actual object's method, and sends back the result. 
+
+> Note: In Java 2 SDK and later, skeleton is no longer needed — handled automatically by the RMI runtime.
+
+---
+
+### Q4. What is RMI Registry?
+**A:** The RMI Registry is like a **phone book for remote objects**. The server registers its object under a name (like "StringService"), and the client looks it up by name to get the stub.
+
+- Default port: **1099**
+- Server uses: `Naming.rebind("//localhost/StringService", obj)`
+- Client uses: `Naming.lookup("rmi://localhost/StringService")`
+
+---
+
+### Q5. What are the 6 steps to write a Java RMI program?
+**A:**
+1. Create the **Remote Interface** (extends `java.rmi.Remote`)
+2. Implement the interface on the **Server**
+3. Compile → generate stub with `rmic` tool
+4. Start **RMI Registry**: `rmiregistry`
+5. Start the **Server** (binds object to registry)
+6. Start the **Client** (looks up object, calls method)
+
+---
+
+### Q6. RMI vs RPC — key differences?
+**A:**
+| RPC | RMI |
+|---|---|
+| Language-neutral | Java-specific |
+| Procedure/function oriented | Object-method oriented |
+| Simple data types | Full Java object serialization |
+| Any language (C, Python, Java) | Java only |
+
+---
+
+### Q7. What must a class do to be a Remote Object?
+**A:**
+1. Implement an interface that extends `java.rmi.Remote`
+2. All interface methods must throw `java.rmi.RemoteException`
+3. Server class must extend `UnicastRemoteObject`
+4. Class must be `Serializable` if passed by value
+
+---
+
+### Q8. Pass by Value vs Pass by Reference in RMI?
+**A:**
+- **By Value:** Object is **serialized** (copied) and sent. Changes don't affect original. Normal Java objects use this.
+- **By Reference:** A **stub** is sent. Method calls go back to the original object on the server. Remote objects use this.
+
+---
+
+### Q9. Why must remote methods throw RemoteException?
+**A:** Because anything can go wrong over a network — server crash, timeout, disconnection. `RemoteException` forces the programmer to handle distributed failures. Without it, bugs would be silent.
+
+---
+
+---
+
+# 🌫️ PART A — PRACTICAL 3: Fuzzy Sets
+
+## What is it in one line?
+**"Not just True or False — things can be PARTIALLY true (0.0 to 1.0)."**
+
+**Analogy:** "Is 5'9\" tall?" In crisp logic: Yes or No. In fuzzy logic: "Kind of, maybe 0.6."
+
+---
+
+### Q1. What is a Fuzzy Set? How different from classical set?
+**A:**
+- **Classical Set:** An element is either IN (1) or OUT (0). No middle ground.
+- **Fuzzy Set:** Each element has a **membership degree** between 0 and 1.
+
+Example: "Hot temperature" fuzzy set — 35°C might have membership 0.8, 25°C might have 0.3.
+
+Formula: `μA(x) ∈ [0, 1]` for every element x.
+
+---
+
+### Q2. How is Union (A ∪ B) done in fuzzy sets?
+**A:** Take the **MAXIMUM** membership value at each point.
+
+`μ(A∪B)(x) = max(μA(x), μB(x))`
+
+Represents **OR**. If μA(5)=0.6 and μB(5)=0.8, union at 5 = **0.8**
+
+---
+
+### Q3. How is Intersection (A ∩ B) done?
+**A:** Take the **MINIMUM** membership value at each point.
+
+`μ(A∩B)(x) = min(μA(x), μB(x))`
+
+Represents **AND**. If μA(5)=0.6 and μB(5)=0.8, intersection at 5 = **0.6**
+
+---
+
+### Q4. How is Complement (NOT A) calculated?
+**A:** `μ(Ā)(x) = 1 - μA(x)`
+
+If μA(5) = 0.7, then complement = **0.3**. Flips membership.
+
+---
+
+### Q5. What is Difference (A - B)?
+**A:** Elements in A but NOT in B. Formula:
+
+`μ(A-B)(x) = min(μA(x), 1 - μB(x))`
+
+= Intersection of A with the complement of B.
+
+---
+
+### Q6. What is a Fuzzy Relation?
+**A:** A fuzzy set defined on a **Cartesian product** of two universes. It captures the *degree of relationship* between elements from two different sets. Stored as a matrix.
+
+Example: "x is close to y" relation.
+
+---
+
+### Q7. How is Cartesian Product done in fuzzy sets?
+**A:** For fuzzy sets P and Q, the relation R = P × Q is:
+
+`μR(p, q) = min(μP(p), μQ(q))` for every pair (p, q)
+
+Result is a matrix where each cell shows how strongly p relates to q.
+
+---
+
+### Q8. Explain Max-Min Composition.
+**A:** Combines two fuzzy relations R (on U×V) and S (on V×W) to get T (on U×W).
+
+For each pair (u, w):
+1. For each intermediate v: compute `min(μR(u,v), μS(v,w))` — "bottleneck" of path
+2. Take `max` of all these — "best path"
+
+`μT(u,w) = max_v { min(R(u,v), S(v,w)) }`
+
+**Analogy:** You want to travel from city A to city C through city B. For each route, the worst road limits your speed (min). You pick the best overall route (max).
+
+---
+
+### Q9. What is a Membership Function?
+**A:** A curve that maps each input value to a degree in [0,1] for a fuzzy concept.
+
+Types: Triangular, Trapezoidal, Gaussian, Sigmoid.
+
+---
+
+### Q10. What is Defuzzification?
+**A:** Converting a fuzzy output set back into a **single crisp value** for real-world action.
+
+Most common method: **Centroid** (center of gravity) — weighted average of all output values by their membership strengths.
+
+---
+
+### Q11. What are applications of Fuzzy Logic?
+**A:** Washing machines, air conditioners, camera auto-focus, medical diagnosis, traffic control, elevator control, robotics, stock market prediction.
+
+---
+
+### Q12. Fuzzy Logic vs Probability — what's the difference?
+**A:**
+- **Probability:** Uncertainty about whether something WILL happen (e.g., 70% chance of rain).
+- **Fuzziness:** Uncertainty about the meaning/degree (e.g., it IS somewhat rainy = 0.7 membership).
+
+---
+
+### Q13. What is Mamdani vs Sugeno fuzzy system?
+**A:**
+- **Mamdani:** Output is a fuzzy set → must defuzzify. More intuitive, used in control.
+- **Sugeno:** Output is a mathematical function/constant. Faster, better for optimization.
+
+---
+
+---
+
+# ⚖️ PART A — PRACTICAL 4: Load Balancing
+
+## What is it in one line?
+**"Spread incoming requests across multiple servers so no single server gets overloaded."**
+
+**Analogy:** Supermarket checkout counters. A manager (load balancer) directs customers to the least busy counter.
+
+---
+
+### Q1. What is Load Balancing and why important?
+**A:** Load balancing distributes incoming network requests across multiple servers. Importance:
+- Prevents server overload
+- Reduces response time
+- Enables horizontal scaling (add more servers)
+- Fault tolerance — if one server fails, others handle traffic
+
+---
+
+### Q2. How does Round Robin work?
+**A:** Assigns requests to servers in a **fixed cyclic order**.
+
+Request 1 → Server A, Request 2 → Server B, Request 3 → Server C, Request 4 → Server A, ...
+
+Uses a pointer that wraps around. Simple, no computation needed.
+
+---
+
+### Q3. How does Least Connections work?
+**A:** Assigns each new request to the server with the **fewest active connections** at that moment.
+
+1. Load balancer checks active connection count of all servers
+2. Picks the one with minimum count
+3. When request finishes, count decreases
+
+More intelligent than Round Robin — adapts to actual server load.
+
+---
+
+### Q4. Round Robin vs Least Connections — when to use what?
+**A:**
+- **Round Robin:** Best when all requests take similar time and servers are identical.
+- **Least Connections:** Best when requests take varying time or servers have different speeds.
+
+---
+
+### Q5. Limitations of Round Robin?
+**A:**
+- Ignores server load — overloaded server still gets requests
+- No fault tolerance built-in
+- Ignores server capacity differences
+- Long-running connections cause imbalance
+
+---
+
+### Q6. What is Weighted Round Robin?
+**A:** Each server gets a **weight** based on capacity. Higher weight = more requests.
+
+Example: Server A (weight 3), Server B (weight 1) → A gets 3 requests, B gets 1 per cycle.
+
+---
+
+### Q7. What other algorithms exist?
+**A:**
+- **IP Hash:** Same client → always same server (good for sessions)
+- **Least Response Time:** Considers connections + response time
+- **Random:** Assign to random server
+- **Consistent Hashing:** Used in distributed caches (Redis)
+
+---
+
+### Q8. What is Sticky Session?
+**A:** All requests from the **same client** go to the **same server** for the entire session. Used when server stores session state (like shopping cart). Implemented via cookies or IP hash.
+
+**Downside:** Conflicts with optimal load distribution.
+
+---
+
+### Q9. Hardware vs Software Load Balancing?
+**A:**
+- **Hardware LB:** Dedicated device (F5 BIG-IP). Very fast, expensive, limited flexibility.
+- **Software LB:** NGINX, HAProxy on commodity hardware. Flexible, cheaper, scalable.
+
+---
+
+### Q10. What is Failover?
+**A:** Automatic rerouting of traffic to **healthy servers** when one server becomes unavailable. Load balancer continuously health-checks servers; removes dead ones from the pool.
+
+---
+
+---
+
+# 🧬 PART A — PRACTICAL 5: Genetic Algorithm (GA)
+
+## What is it in one line?
+**"Simulate evolution (survival of the fittest) to find the best solution to a problem."**
+
+**Analogy:** Breeding dogs for specific traits. You pick the best dogs, breed them, keep the best offspring, repeat — eventually get the perfect dog.
+
+---
+
+### Q1. What is a Genetic Algorithm?
+**A:** GA is an optimization algorithm inspired by **Darwinian evolution**. It maintains a **population of solutions**, selects the best ones, combines and mutates them, and repeats — gradually finding better solutions.
+
+Used when: problem is complex, non-linear, no gradient available.
+
+---
+
+### Q2. Define Genotype and Phenotype in GA.
+**A:**
+- **Genotype:** The **encoded** form of the solution — the binary chromosome (e.g., `"0101110010001100"`). This is what the GA manipulates.
+- **Phenotype:** The **actual solution** in the real world (e.g., x = 3.67 temperature value).
+
+GA works in genotype space; fitness is evaluated in phenotype space.
+
+---
+
+### Q3. Define Population, Gene, Chromosome, Fitness Function.
+**A:**
+- **Chromosome:** One candidate solution (one binary string = one individual)
+- **Gene:** A single bit/position in a chromosome
+- **Population:** All current candidate solutions together
+- **Fitness Function:** A formula that rates how "good" a solution is. GA maximizes this.
+
+---
+
+### Q4. Explain the full GA architecture (phases).
+**A:**
+1. **Initialization:** Create random population of chromosomes
+2. **Evaluation:** Compute fitness for each individual
+3. **Selection:** Choose parents (better individuals selected more often)
+4. **Crossover:** Combine two parents to make children
+5. **Mutation:** Randomly flip bits in children
+6. **Replacement:** Children form new population
+7. **Repeat** steps 2-6 until stopping criteria met
+
+---
+
+### Q5. What is Crossover? Types?
+**A:** Crossover combines genetic material from **two parents** to create offspring.
+
+Types:
+- **Single-Point:** One cut, swap the tails. `AB|CDE + XY|ZWV → AB|ZWV`
+- **Two-Point:** Two cuts, swap the middle section
+- **Uniform:** Each gene randomly taken from parent1 or parent2 (50/50)
+- **Arithmetic:** Child = α × parent1 + (1-α) × parent2 (for real values)
+
+---
+
+### Q6. What is Mutation? Why important?
+**A:** Mutation randomly **flips bits** in a chromosome with a small probability (typically 0.001–0.05).
+
+Why important:
+- Introduces diversity lost through selection
+- Allows exploring new regions of solution space
+- Prevents premature convergence to local optima
+- Recovers lost genetic material
+
+**Too high mutation rate** → random search (loses good solutions)  
+**Too low mutation rate** → algorithm gets stuck (premature convergence)
+
+---
+
+### Q7. What is Selection? Types?
+**A:** Selection decides which individuals get to reproduce.
+
+Types:
+- **Roulette Wheel:** Selection probability proportional to fitness. Better individuals have larger "sectors" of the wheel.
+- **Tournament:** Pick k random individuals, best one wins
+- **Rank Selection:** Rank by fitness, assign selection probability by rank
+- **Elitism:** Always preserve the top individuals unchanged
+
+---
+
+### Q8. What is Elitism?
+**A:** Always copying the **best individual(s)** directly to the next generation without any crossover/mutation. Ensures the best solution is never accidentally lost. 
+
+---
+
+### Q9. What is the Stopping Criteria?
+**A:** GA stops when:
+1. Max number of generations reached
+2. Fitness threshold achieved (good enough solution)
+3. Population converged (all individuals similar)
+4. No improvement for many generations
+5. Time/compute limit reached
+
+---
+
+### Q10. GA vs Traditional Optimization — advantages?
+**A:**
+- No gradient needed (works with any fitness function)
+- Handles multimodal functions (multiple peaks)
+- Works with discrete, continuous, or mixed variables
+- Less likely to get stuck in local optima
+- Naturally parallelizable
+
+---
+
+### Q11. What is the Schema Theorem?
+**A:** Holland's theorem explaining why GA works. A **schema** is a pattern of bits (* = don't care, e.g., `"1**0*1"`). Short, above-average schemas grow exponentially over generations.
+
+**Building Block Hypothesis:** GA combines small high-quality sub-patterns (building blocks) to build globally optimal solutions.
+
+---
+
+### Q12. What is Encoding? What are the types?
+**A:** Converting a real-world solution into a chromosome (genotype).
+
+Types:
+- **Binary encoding:** Solution → binary string (most common)
+- **Real-value encoding:** Solution stored as real numbers directly
+- **Permutation encoding:** Order matters (e.g., TSP city order)
+- **Tree encoding:** Used in Genetic Programming
+
+---
+
+---
+
+# 🦠 PART A — PRACTICAL 6: Clonal Selection Algorithm (CLONALG)
+
+## What is it in one line?
+**"Immune system-inspired optimization: best antibodies get cloned and mutated to become even better."**
+
+**Analogy:** Your immune system. When you get a virus (problem), B-cells that somewhat recognize it get cloned in huge numbers. Copies mutate randomly — the ones that fight the virus better survive and repeat.
+
+---
+
+### Q1. What is CLONALG?
+**A:** CLONALG (Clonal Selection Algorithm) is an optimization algorithm inspired by the **clonal selection theory** of adaptive immunity. High-affinity solutions (antibodies) get selected, cloned more, and mutated to find even better solutions.
+
+---
+
+### Q2. Antigen, Antibody, Affinity — in algorithm terms?
+**A:**
+- **Antigen** = The problem to be solved
+- **Antibody** = A candidate solution (like a chromosome in GA)
+- **Affinity** = How good the solution is (like fitness in GA)
+
+High affinity antibody = good solution = gets more clones.
+
+---
+
+### Q3. What is Cloning and how is it proportional to affinity?
+**A:** Selected high-affinity antibodies create multiple copies (clones). The **number of clones is proportional to rank**:
+
+`n_clones_i = ceil(β × N / i)` where i = rank, N = population size
+
+Rank 1 (best) gets the most clones. This focuses search effort on promising regions.
+
+---
+
+### Q4. What is Hypermutation? Why inversely proportional to affinity?
+**A:** After cloning, each clone is **mutated** (randomly changed).
+
+Key idea: **Low affinity → HIGH mutation** (explore new areas). **High affinity → LOW mutation** (fine-tune near good solution).
+
+Why? Good solutions need small tweaks; bad solutions need big jumps to escape.
+
+---
+
+### Q5. All phases of CLONALG?
+**A:**
+1. Initialize random antibody population
+2. Evaluate affinity (fitness) of all antibodies
+3. Select top-n high-affinity antibodies
+4. Clone them (proportional to rank)
+5. Hypermutate clones (inversely proportional to affinity)
+6. Re-evaluate clones
+7. Keep best from (original + clones)
+8. Replace worst with new random antibodies (diversity)
+9. Repeat until termination
+
+---
+
+### Q6. CLONALG vs GA — key differences?
+**A:**
+| Feature | GA | CLONALG |
+|---|---|---|
+| Crossover | Yes, central operator | No crossover |
+| Mutation | Fixed low rate | Inverse-affinity dependent (adaptive) |
+| Cloning | Fitness-proportional | Rank-proportional |
+| Replacement | Generational | Replace worst with random |
+| Memory | No | Yes (memory cells) |
+| Best for | General optimization | Multimodal, classification |
+
+---
+
+### Q7. What is Affinity Maturation?
+**A:** The biological/algorithmic process where antibody affinity for the target **increases over iterations** through repeated cycles of cloning + hypermutation + selection.
+
+In the algorithm: solutions gradually converge toward the optimal value.
+
+---
+
+### Q8. What is the Replacement Step in CLONALG?
+**A:** The **d lowest-affinity antibodies** are removed and replaced with **d new random antibodies**. This:
+- Maintains population diversity
+- Allows exploration of new regions
+- Prevents premature convergence
+- Mimics bone marrow producing new B-cells
+
+---
+
+### Q9. Applications of Clonal Selection?
+**A:** Function optimization, pattern recognition, intrusion detection, anomaly detection, scheduling, feature selection, neural network training, robotics path planning.
+
+---
+
+---
+
+# 🛡️ PART B — PRACTICAL 1: AIS / AIPR (Artificial Immune Pattern Recognition)
+
+## What is it in one line?
+**"Use the immune system's learning mechanism to classify patterns (like structural damage types)."**
+
+---
+
+### Q1. What is AIS (Artificial Immune System)?
+**A:** AIS is a family of computational algorithms inspired by the vertebrate immune system. Key properties:
+- **Pattern recognition** without prior knowledge of all patterns
+- **Self/non-self discrimination** (normal vs anomalous)
+- **Memory:** Remembers previously seen patterns
+- **Distributed:** No central controller
+- **Adaptive:** Learns and improves over time
+
+Three main AIS types: Clonal Selection, Negative Selection, Immune Networks.
+
+---
+
+### Q2. How is data represented in AIS?
+**A:**
+- **Antigen:** Input data sample (a real-valued feature vector, e.g., vibration readings)
+- **Antibody:** Learned prototype for a class (same dimension as antigen)
+- **Affinity:** Similarity between antibody and antigen (inverse Euclidean distance — closer = higher affinity)
+- **Shape Space:** The high-dimensional space where antibodies and antigens live
+
+---
+
+### Q3. What is Data Cleaning and Feature Extraction?
+**A:**
+- **Data Cleaning:** Fix/remove incorrect, incomplete, or noisy data. Steps: remove duplicates, handle missing values, filter outliers, correct inconsistent formats.
+- **Feature Extraction:** Transform raw data into numerical features. For structural damage: vibration frequency, mean, variance, RMS, FFT components.
+
+---
+
+### Q4. Why is AIS needed?
+**A:**
+- Handles high-dimensional pattern recognition with less labeled data
+- Self-organizing — no predefined decision boundaries
+- Robust to noise and partial data
+- Handles evolving patterns over time
+- Intrinsically multi-class
+- Anomaly detection without knowing what anomalies look like in advance
+
+---
+
+### Q5. What is Negative Selection in AIS?
+**A:** Inspired by T-cell maturation in the thymus. Generates detectors that do **NOT match self (normal patterns)**. Used for anomaly detection — if a detector matches something, it's an anomaly.
+
+**Clonal Selection:** Amplifies detectors that match target patterns. Used for classification.  
+**Negative Selection:** Learns what's normal, flags deviations. Used for anomaly detection.
+
+---
+
+### Q6. What are classification metrics used in AIPR?
+**A:**
+- **Accuracy:** (TP+TN) / (TP+TN+FP+FN) — overall correctness
+- **Precision:** TP/(TP+FP) — of predicted positive, how many actually positive
+- **Recall:** TP/(TP+FN) — of actual positive, how many correctly detected
+- **F1-Score:** 2×(Precision×Recall)/(Precision+Recall) — balanced metric
+- **Confusion Matrix:** Table showing predicted vs actual class for each class
+
+---
+
+---
+
+# 🐜 PART B — PRACTICAL 4: ACO / TSP (Ant Colony Optimization)
+
+## What is it in one line?
+**"Ants lay pheromone trails — shorter paths get more pheromone — colony learns the shortest route."**
+
+**Analogy:** Real ants finding food. Many ants explore randomly. The ones who find a short path return faster → deposit more pheromone → other ants follow → path gets reinforced → everyone converges to shortest route.
+
+---
+
+### Q1. What is the Traveling Salesman Problem (TSP)?
+**A:** Given N cities, find the **shortest route** that visits every city exactly once and returns to start. Classic NP-Hard optimization problem.
+
+For N=10: 181,440 possible routes. For N=20: 60.8 trillion routes!
+
+---
+
+### Q2. Why is TSP NP-Hard?
+**A:** The number of possible routes grows **factorially** with N: O(N!). No known polynomial-time algorithm exists to solve it exactly for large N. Even supercomputers can't brute-force large instances. That's why we use heuristics like ACO.
+
+---
+
+### Q3. What is ACO?
+**A:** ACO (Ant Colony Optimization) is a metaheuristic where artificial **ants** build solutions probabilistically based on two things:
+1. **Pheromone (τ):** Learned memory — edges used in short tours have more pheromone
+2. **Heuristic (η = 1/distance):** Prefer nearby cities
+
+Over iterations, pheromone accumulates on good paths → colony converges to near-optimal route.
+
+---
+
+### Q4. What is Pheromone Evaporation?
+**A:** After each iteration, all pheromone values decrease:
+
+`τ_ij ← (1 - ρ) × τ_ij` where ρ = evaporation rate
+
+Why?
+- Prevents unlimited pheromone buildup on early (possibly suboptimal) paths
+- Allows forgetting bad routes
+- Encourages exploration of new paths
+
+If ρ too high → forgets too fast (no learning). If ρ too low → stagnation (locked to one path).
+
+---
+
+### Q5. What is the role of α (alpha) and β (beta) in ACO?
+**A:** Probability of ant choosing city j from city i:
+
+`P(i→j) ∝ τ_ij^α × η_ij^β`
+
+- **α (alpha):** Controls pheromone influence. High α → trust learned paths more (exploitation).
+- **β (beta):** Controls heuristic influence. High β → prefer nearby cities (greedy).
+
+Typical: α=1, β=2–5. Balance between exploration and exploitation.
+
+---
+
+### Q6. What is Pheromone Deposition?
+**A:** After completing a tour, each ant deposits pheromone on the edges it used:
+
+`Δτ_ij = Q / L_k` where L_k = length of ant k's tour
+
+Shorter tour → larger deposit → reinforces better paths. Combined with evaporation → good paths strengthen, bad paths fade.
+
+---
+
+### Q7. GA vs ACO — differences?
+**A:**
+| Feature | GA | ACO |
+|---|---|---|
+| Representation | Population of complete solutions | Ants build solutions from scratch |
+| Communication | No shared memory | Shared pheromone matrix |
+| Operators | Crossover + mutation | Probabilistic construction |
+| Best for | General optimization | Combinatorial (routing, scheduling) |
+
+---
+
+### Q8. What are ACO Variants?
+**A:**
+- **AS (Ant System):** Original — all ants deposit proportional to tour quality
+- **ACS (Ant Colony System):** Only best ant deposits; local pheromone update too
+- **MMAS (Min-Max AS):** Limits pheromone to [τ_min, τ_max] — prevents stagnation
+- **EAS (Elitist AS):** Best-ever ant gets extra pheromone each iteration
+
+---
+
+### Q9. How does ACO balance exploration vs exploitation?
+**A:**
+- **Pheromone evaporation (ρ):** Higher ρ = more exploration (trails fade faster)
+- **α parameter:** Lower α = more exploration (less pheromone influence)
+- **Random start cities:** Each ant starts from different city
+- **Stochastic selection:** Probabilistic choice, not deterministic
+
+---
+
+### Q10. Real-world applications of ACO?
+**A:** Vehicle routing, network packet routing, job shop scheduling, feature selection in ML, protein structure prediction, PCB component placement, airline crew scheduling, image segmentation.
+
+---
+
+---
+
+# 🔬 PART B — PRACTICAL 2: DEAP (Distributed Evolutionary Algorithms in Python)
+
+## What is it in one line?
+**"A Python library to quickly build and test any evolutionary algorithm."**
+
+---
+
+### Q1. What is DEAP?
+**A:** DEAP is an open-source Python framework for building evolutionary algorithms. Key features:
+- Genetic Algorithms with any representation
+- Genetic Programming with prefix trees
+- Evolution Strategies (CMA-ES)
+- Multi-objective optimization (NSGA-II, NSGA-III)
+- Parallelization with multiprocessing/SCOOP
+- Hall of Fame, statistics, genealogy tracking
+
+---
+
+### Q2. What is the `creator` module in DEAP?
+**A:** `creator` dynamically creates new Python classes at runtime.
+
+```python
+creator.create("FitnessMax", base.Fitness, weights=(1.0,))  # maximize
+creator.create("Individual", list, fitness=creator.FitnessMax)
+```
+
+`weights=(1.0,)` → maximize. `(-1.0,)` → minimize. `(1.0, -1.0)` → multi-objective (maximize first, minimize second).
+
+---
+
+### Q3. What is a Toolbox in DEAP?
+**A:** Toolbox is DEAP's central **registry** for all EA operators. You register functions under a name, then call them by that name.
+
+```python
+toolbox.register("evaluate", my_fitness_function)
+toolbox.register("mate", tools.cxTwoPoint)
+toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
+toolbox.register("select", tools.selTournament, tournsize=3)
+```
+
+---
+
+### Q4. What is Hall of Fame?
+**A:** `tools.HallOfFame(n)` stores the **top-n best individuals ever** seen across all generations. Automatically updates when better individuals are found. HoF individuals are NOT in the active population — they're stored separately so the best solution is never lost.
+
+---
+
+### Q5. Why must fitness values be tuples in DEAP?
+**A:** To uniformly support both single and multi-objective optimization.
+- Single: `(100,)` — one objective
+- Multi: `(0.8, 120.0)` — two objectives with separate weights
+
+Same code structure works for all cases.
+
+---
+
+### Q6. Why invalidate fitness after mutation/crossover?
+**A:** Because the genotype changed — the cached fitness value is now **stale** and wrong. Must delete it so it gets recomputed: `del individual.fitness.values`
+
+---
+
+### Q7. eaSimple vs eaMuPlusLambda?
+**A:**
+- **eaSimple:** Standard generational GA. μ parents → μ offspring → replace all.
+- **eaMuPlusLambda:** μ parents produce λ offspring. Best μ from (μ+λ) combined survive. Has built-in elitism.
+- **eaMuCommaLambda:** Parents are discarded — only offspring survive. Prevents stagnation.
+
+---
+
+---
+
+# 🗺️ PART B — PRACTICAL 3: MapReduce
+
+## What is it in one line?
+**"Split a huge dataset across many machines, process in parallel (Map), then combine results (Reduce)."**
+
+**Analogy:** Counting words in a million books. Give 1000 books to each of 1000 people (Map). Each person counts their words. Then combine everyone's counts (Reduce).
+
+---
+
+### Q1. What is MapReduce?
+**A:** MapReduce is a programming model for processing large datasets in parallel across a distributed cluster.
+
+Two phases:
+- **Map:** Input records → (key, value) pairs. Runs in parallel on all nodes.
+- **Reduce:** Groups all values for each key and aggregates them. Parallel per key.
+
+Developed by Google (2004). Apache Hadoop is the open-source implementation.
+
+---
+
+### Q2. HDFS vs MapReduce — difference?
+**A:**
+- **HDFS:** The **storage layer**. Splits large files into 128MB blocks, replicates 3x across nodes. Fault-tolerant storage.
+- **MapReduce:** The **processing layer**. Programming model that processes data stored in HDFS.
+
+HDFS stores → MapReduce computes. Both together = Hadoop stack.
+
+---
+
+### Q3. What happens in Shuffle and Sort phase?
+**A:** After all Mappers finish:
+1. Collect all (key, value) pairs from all mappers
+2. **Sort all pairs by key** across the cluster
+3. **Group** all values with same key together
+4. Send each group to exactly one Reducer
+
+This is the **most expensive phase** — heavy network I/O. Handled automatically by Hadoop framework.
+
+---
+
+### Q4. What is a Combiner?
+**A:** A mini-Reducer that runs on the **mapper's output before shuffle**. Pre-aggregates values on the local node to reduce network data transfer.
+
+Example: Instead of sending (2001, 32), (2001, 35), (2001, 28) over network, combiner pre-computes local sum → much less data transferred.
+
+Only works when reduce operation is **associative and commutative**.
+
+---
+
+### Q5. What is Data Locality in Hadoop?
+**A:** Move **computation to data** rather than moving data to computation. Hadoop tries to run mapper tasks on the same node that stores the data.
+
+Levels: node-local (best) → rack-local → cross-rack (worst).
+
+Network bandwidth is the bottleneck in distributed systems — this minimizes it.
+
+---
+
+### Q6. What is YARN?
+**A:** YARN (Yet Another Resource Negotiator) is Hadoop's cluster resource manager.
+
+- **ResourceManager:** Master — manages cluster resources, schedules jobs
+- **NodeManager:** Worker on each node — manages containers, reports resources
+- **ApplicationMaster:** Per-job manager — negotiates resources, monitors tasks
+
+Before YARN (Hadoop 1.x): JobTracker did everything — single point of failure.
+
+---
+
+### Q7. What is fault tolerance in MapReduce?
+**A:** MapReduce handles failures automatically:
+- **Task failure:** Heartbeat timeout → re-execute task on another node
+- **Node failure:** HDFS replication ensures data available on other nodes
+- **Speculative execution:** Slow tasks get duplicate copies; first to finish wins
+
+This enables running on cheap commodity hardware that fails frequently.
+
+---
+
+### Q8. Why is distributed processing needed?
+**A:** Weather/web datasets are terabytes to petabytes. Single machine:
+- Can't store that much data
+- Takes days to process (vs hours on cluster)
+- Single point of failure
+
+Distributed system: parallel processing, linear scaling, fault tolerance.
+
+---
+
+---
+
+# 🎨 PART A/B — PRACTICAL 7 / 5: Neural Style Transfer (NST)
+
+## What is it in one line?
+**"Combine the content of one photo with the artistic style of a painting using deep learning."**
+
+---
+
+### Q1. What is Neural Style Transfer?
+**A:** NST generates a new image that has the **content structure** of a photograph and the **artistic style** of a painting. Uses a pre-trained CNN (VGG19) to extract content and style features, then optimizes the generated image to satisfy both.
+
+---
+
+### Q2. What is the role of Content and Style images?
+**A:**
+- **Content Image:** Provides the *what* — objects, shapes, layout. Generated image should look like this structurally.
+- **Style Image:** Provides the *how it looks* — colors, textures, brushstrokes, patterns.
+
+The algorithm finds a generated image that satisfies **both** objectives simultaneously.
+
+---
+
+### Q3. What is a CNN in NST? How are features extracted?
+**A:** VGG19's intermediate layers act as **feature extractors** (weights are frozen, not trained):
+- **Content:** Higher-level layers (block5_conv2) capture semantic structure
+- **Style:** Multiple layers (block1–block5) capture textures at different scales
+
+Earlier layers = fine textures/colors. Later layers = high-level semantic content.
+
+---
+
+### Q4. What is Content Loss and Style Loss?
+**A:**
+- **Content Loss:** MSE between VGG features of generated image and content image at a specific layer. Penalizes structural differences.
+- **Style Loss:** MSE between **Gram matrices** of generated vs style image at multiple layers. Penalizes texture/style differences.
+
+Total Loss = α × Content Loss + β × Style Loss
+
+---
+
+### Q5. What is a Gram Matrix? Why used for style?
+**A:** Gram matrix measures **correlation between feature channels**:
+
+`G_cd = Σ_ij F_ijc × F_ijd`
+
+Result: (channels × channels) matrix of co-occurrence statistics.
+
+Why for style? It captures **which textures appear together** but discards **where they are** (position-independent). Perfect for style — we want texture patterns, not layout.
+
+---
+
+### Q6. Steps of NST?
+**A:**
+1. Load content + style images (normalize to [0,1])
+2. Build VGG19 with frozen weights as feature extractor
+3. Extract fixed style targets (Gram matrices) and content targets
+4. Initialize generated image = copy of content image (as trainable variable)
+5. Optimization loop: forward pass → compute losses → backpropagate to **image pixels** → update pixels with Adam → clip to [0,1]
+6. Output final artistic image
+
+---
+
+### Q7. Why is VGG19 used?
+**A:** Pre-trained on ImageNet — its filters capture rich visual features. Simple uniform architecture (all 3×3 conv). Lower layers capture fine textures, higher layers capture semantic content. This separation is ideal for NST's two objectives.
+
+---
+
+### Q8. In NST, what is being optimized — model or image?
+**A:** The **IMAGE PIXELS** are optimized, NOT the VGG19 model weights. VGG19 weights are **completely frozen**. The generated image is a `tf.Variable` — its pixel values update each step via GradientTape.
+
+This is the opposite of normal deep learning (where we optimize weights, not inputs).
+
+---
+
+### Q9. What is Total Variation (TV) Loss?
+**A:** TV loss penalizes large differences between neighboring pixels. Acts as a spatial regularizer — encourages smoothness, reduces noise/artifacts in the generated image.
+
+Total Loss = α×ContentLoss + β×StyleLoss + γ×TVLoss
+
+---
+
+### Q10. How can NST be used in distributed computing?
+**A:** NST is compute-intensive. Distributed approaches:
+- GPU acceleration (single/multi-GPU)
+- TF Distributed Strategy across multiple machines
+- Cloud platforms (Google Colab, AWS EC2)
+- **Feed-forward networks:** Train once for one style, then apply in one forward pass (real-time NST by Johnson et al.)
+
+---
+
+---
+
+# 🌐 BIG PICTURE: EVOLUTIONARY COMPUTATION & SWARM INTELLIGENCE
+
+## The family tree of CI algorithms
+
+```
+Computational Intelligence
+├── Evolutionary Computation
+│   ├── Genetic Algorithm (GA)       ← population, crossover, mutation
+│   ├── Genetic Programming (GP)     ← like GA but evolves programs/trees
+│   ├── Evolution Strategy (ES)      ← real-valued, self-adaptive mutation
+│   └── Differential Evolution (DE)  ← real-valued, vector differences
+├── Swarm Intelligence
+│   ├── Ant Colony Optimization (ACO) ← pheromone trails
+│   └── Particle Swarm (PSO)          ← birds flocking
+├── Artificial Immune Systems (AIS)
+│   ├── Clonal Selection (CLONALG)
+│   └── Negative Selection
+└── Fuzzy Systems
+    ├── Fuzzy Logic / Control
+    └── Neuro-fuzzy systems
+```
+
+---
+
+### Q: What is Evolutionary Computation?
+**A:** Evolutionary Computation (EC) is a family of optimization algorithms inspired by **biological evolution**. All EC algorithms share:
+- A **population** of candidate solutions
+- A **fitness** measure to evaluate quality
+- **Selection** of better solutions
+- **Variation operators** (crossover, mutation) to produce new solutions
+- **Iterative improvement** over generations
+
+---
+
+### Q: What is Genetic Programming (GP)?
+**A:** GP is like GA but instead of evolving binary strings, it evolves **programs (tree structures)**. Each individual is a program tree. Crossover swaps sub-trees. Mutation replaces sub-trees with random ones. Used to automatically discover mathematical formulas or algorithms.
+
+**Example:** GP might automatically discover that `sin(x) + cos(2x)` best fits some data.
+
+---
+
+### Q: What is Particle Swarm Optimization (PSO)?
+**A:** PSO is inspired by **birds flocking** or **fish schooling**. Each particle (solution) has a position and velocity. Particles move through solution space guided by:
+- Their own best position found so far (personal best)
+- The swarm's globally best position (global best)
+
+No crossover or mutation — particles "fly" toward better solutions. Good for continuous optimization.
+
+---
+
+### Q: What is Evolution Strategy (ES)?
+**A:** ES is an evolutionary algorithm that works **directly on real-valued vectors** (no binary encoding). Key feature: the mutation step size is **self-adaptive** — the algorithm learns how much to mutate as it evolves. Variants: (μ, λ)-ES and (μ+λ)-ES.
+
+---
+
+### Q: What is Swarm Intelligence?
+**A:** Swarm Intelligence (SI) studies collective behavior of **decentralized, self-organized** systems. Key properties:
+- No central controller
+- Simple local rules → complex global behavior
+- Emergent intelligence from interactions
+
+Examples: ACO (ants), PSO (particles/birds), Bee Algorithm, Firefly Algorithm.
+
+---
+
+### Q: What is the difference between GA and ACO?
+(Already covered in ACO section above — refer to that table)
+
+---
+
+### Q: What are the key differences between all bio-inspired algorithms?
+**A:**
+| Algorithm | Inspiration | Best For | Key Mechanism |
+|---|---|---|---|
+| GA | Evolution | General optimization | Crossover + mutation |
+| GP | Evolution | Program synthesis | Tree crossover |
+| PSO | Flocking birds | Continuous optimization | Velocity/position update |
+| ACO | Ant pheromone trails | Combinatorial (TSP, routing) | Pheromone matrix |
+| CLONALG | Immune system | Multimodal, classification | Hypermutation |
+| AIS | Immune system | Anomaly detection | Self/non-self discrimination |
+
+---
+
+---
+
+# 🔑 SUPER QUICK REVISION — Key Terms Cheat Sheet
+
+| Term | Simple Meaning |
+|---|---|
+| Genotype | Binary chromosome (encoded solution) |
+| Phenotype | Actual solution value |
+| Fitness | Score of how good a solution is |
+| Crossover | Mixing two parents to make a child |
+| Mutation | Random change to maintain diversity |
+| Selection | Choosing better solutions to reproduce |
+| Elitism | Always keeping the best individual |
+| Pheromone | ACO's "memory" — how good a path is |
+| Antibody | CLONALG/AIS solution prototype |
+| Affinity | CLONALG's fitness measure |
+| Hypermutation | Adaptive mutation in CLONALG (inverse to affinity) |
+| Membership | Fuzzy set degree (0.0 to 1.0) |
+| Defuzzification | Converting fuzzy output to a crisp value |
+| Gram Matrix | NST's texture fingerprint (channel correlations) |
+| Stub | RPC/RMI proxy that makes remote call look local |
+| Marshalling | Packing data to send over network |
+| Round Robin | Cyclic request distribution |
+| Least Connections | Send to server with fewest active requests |
+| MapReduce | Map = parallel split work; Reduce = combine results |
+| HDFS | Distributed file system (Hadoop) |
+| Schema | Pattern in GA chromosome (* = don't care) |
+| NP-Hard | No polynomial algorithm known — must use heuristics |
+| Swarm Intelligence | Emergent intelligence from simple local rules |
+
+---
+
+---
+
+# ⚡ LAST-MINUTE POWER LINES (Say these in viva to impress)
+
+1. **GA:** *"GA is preferred when the objective is non-differentiable or gradient methods fail."*
+
+2. **ACO:** *"ACO converts collective local decisions by ants into emergent global route optimization."*
+
+3. **CLONALG:** *"CLONALG balances exploration and exploitation via affinity-dependent hypermutation."*
+
+4. **Fuzzy:** *"Fuzzy systems are interpretable and robust for linguistic control problems where crisp logic is too rigid."*
+
+5. **RPC:** *"RPC improves developer productivity by hiding network complexity, but distributed failures, latency, and serialization overhead must be handled explicitly."*
+
+6. **MapReduce:** *"MapReduce achieves scalability by moving computation to data, not data to computation."*
+
+7. **NST:** *"In NST, we optimize image pixels, not network weights — VGG19 is used as a frozen feature extractor."*
+
+8. **AIS:** *"AIS provides inherent multi-class discrimination, noise robustness, and adaptive learning without predefined boundaries."*
+
+---
+
+*Good luck tomorrow! You've got this. 💪*
