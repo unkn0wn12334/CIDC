@@ -106,10 +106,7 @@ def load_and_process_image(image_path, max_dim=512):
 # ============================================================
 print("Downloading sample images...")
 
-# content_path = tf.keras.utils.get_file(
-#     'YellowLabradorLooking_new.jpg',
-#     'https://storage.googleapis.com/download.tensorflow.org/example_images/YellowLabradorLooking_new.jpg'
-# )
+# ── PRIMARY: Download images from URLs (online) ──────────────
 content_path = tf.keras.utils.get_file(
     'lena.jpg',
     'https://raw.githubusercontent.com/opencv/opencv/master/samples/data/lena.jpg'
@@ -118,6 +115,16 @@ style_path = tf.keras.utils.get_file(
     'kandinsky5.jpg',
     'https://storage.googleapis.com/download.tensorflow.org/example_images/Vassily_Kandinsky%2C_1913_-_Composition_7.jpg'
 )
+
+# ── SECONDARY: Local file paths (uncomment if you have local images) ────
+# content_path = r"U:\ci_dc_practical\data\your_content_image.jpg"
+# style_path = r"U:\ci_dc_practical\data\your_style_image.jpg"
+#
+# Alternative external URLs (uncomment to use):
+# content_path = tf.keras.utils.get_file(
+#     'YellowLabradorLooking_new.jpg',
+#     'https://storage.googleapis.com/download.tensorflow.org/example_images/YellowLabradorLooking_new.jpg'
+# )
 
 content_image = load_and_process_image(content_path)  # (1, H, W, 3) in [0,1]
 style_image   = load_and_process_image(style_path)    # (1, H, W, 3) in [0,1]
