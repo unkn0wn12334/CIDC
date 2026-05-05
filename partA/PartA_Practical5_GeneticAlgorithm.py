@@ -114,8 +114,21 @@ def load_real_dataset():
         return col_scaled
 
     except Exception as e:
-        print(f"✗ Failed to load dataset: {e}")
-        return None
+        print(f"✗ Failed to load dataset from URL: {e}")
+
+    # ── SECONDARY: Local file fallback (uncomment if needed) ────
+    # LOCAL_PATH = r"U:\ci_dc_practical\data\dry_bean.xlsx"
+    # try:
+    #     print("Trying local file ...")
+    #     df = pd.read_excel(LOCAL_PATH)
+    #     col = df.select_dtypes(include=[np.number]).iloc[:, 0].dropna().values
+    #     col_scaled = (col - col.min()) / (col.max() - col.min()) * 10
+    #     print(f"✓ Loaded {len(col_scaled)} samples from local file")
+    #     return col_scaled
+    # except Exception as e2:
+    #     print(f"✗ Local file also failed ({e2}). Falling back to synthetic.")
+
+    return None
 
 # ── Build fitness landscape from dataset ────────────────────────
 def build_fitness_from_data(data_values, n_bins=100):
